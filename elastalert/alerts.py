@@ -1193,7 +1193,7 @@ class SlackAlerter(Alerter):
         # Add JIRA ticket if it exists
         if self.pipeline is not None and 'jira_ticket' in self.pipeline:
             url = '%s/browse/%s' % (self.pipeline['jira_server'], self.pipeline['jira_ticket'])
-            body += '\nJIRA ticket: %s' % (url)
+            body += '\nJIRA ticket: <%s>' % (url)
 
         # post to slack
         headers = {'content-type': 'application/json'}
