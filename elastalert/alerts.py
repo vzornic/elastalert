@@ -728,22 +728,31 @@ class JiraAlerter(Alerter):
         elif 'assignee' in self.jira_args:
             self.jira_args.pop('assignee')
 
-    def find_existing_ticket(self, matches):
+    def get_title(self, matches, for_search=False):
         # Default title, get stripped search version
         if 'jira_subject' in self.rule:
-            title = self.create_custom_title(matches)
+            title = self.create_jira_custom_title(matches)
         elif 'alert_subject' not in self.rule:
-            title = self.create_default_title(matches, True)
+            title = self.create_default_title(matches, for_search)
         else:
             title = self.create_title(matches)
 
-        if 'jira_ignore_in_title' in self.rule:
-            title = title.replace(matches[0].get(self.rule['jira_ignore_in_title'], ''), '')
+        if len(title) >= 255:
+            # Max jira title length is 255
+            title = title[0:252] + '...'
 
-        # This is necessary for search to work. Other special characters and dashes
-        # directly adjacent to words appear to be ok
-        title = title.replace(' - ', ' ')
-        title = title.replace('\\', '\\\\')
+        if for_search:
+            if 'jira_ignore_in_title' in self.rule:
+                title = title.replace(matches[0].get(self.rule['jira_ignore_in_title'], ''), '')
+
+            # This is necessary for search to work. Other special characters and dashes
+            # directly adjacent to words appear to be ok
+            title = title.replace(' - ', ' ')
+            title = title.replace('\\', '\\\\')
+        return title
+
+    def find_existing_ticket(self, matches):
+        title = self.get_title(matches, True)
 
         date = (datetime.datetime.now() - datetime.timedelta(days=self.max_age)).strftime('%Y-%m-%d')
         jql = 'project=%s AND summary~"%s" and created >= "%s"' % (self.project, title, date)
@@ -783,10 +792,7 @@ class JiraAlerter(Alerter):
                 value = lookup_es_key(matches[0], self.rule[jira_field][1:])
                 self.set_jira_arg(jira_field, value, fields)
 
-        if 'jira_subject' in self.rule:
-            title = self.create_custom_title(matches)
-        else:
-            title = self.create_title(matches)
+        title = self.get_title(matches, True)
 
         if self.bump_tickets:
             ticket = self.find_existing_ticket(matches)
@@ -887,7 +893,7 @@ class JiraAlerter(Alerter):
 
         return title
 
-    def create_custom_title(self, matches):
+    def create_jira_custom_title(self, matches):
         alert_subject = str(self.rule['jira_subject'])
         alert_subject_max_len = int(self.rule.get('alert_subject_max_len', 2048))
 
