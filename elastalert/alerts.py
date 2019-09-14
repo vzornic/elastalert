@@ -536,6 +536,7 @@ class JiraAlerter(Alerter):
         'jira_server',
         'jira_transition_to',
         'jira_watchers',
+        'jira_subject',
     ]
 
     # Some built-in jira types that can be used as custom fields require special handling
@@ -1188,6 +1189,12 @@ class SlackAlerter(Alerter):
         body = self.create_alert_body(matches)
 
         body = self.format_body(body)
+
+        # Add JIRA ticket if it exists
+        if self.pipeline is not None and 'jira_ticket' in self.pipeline:
+            url = '%s/browse/%s' % (self.pipeline['jira_server'], self.pipeline['jira_ticket'])
+            body += '\nJIRA ticket: %s' % (url)
+
         # post to slack
         headers = {'content-type': 'application/json'}
         # set https proxy, if it was provided
