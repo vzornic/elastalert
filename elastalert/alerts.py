@@ -729,7 +729,9 @@ class JiraAlerter(Alerter):
 
     def find_existing_ticket(self, matches):
         # Default title, get stripped search version
-        if 'alert_subject' not in self.rule:
+        if 'jira_subject' in self.rule:
+            title = self.create_custom_title(matches)
+        elif 'alert_subject' not in self.rule:
             title = self.create_default_title(matches, True)
         else:
             title = self.create_title(matches)
@@ -780,7 +782,10 @@ class JiraAlerter(Alerter):
                 value = lookup_es_key(matches[0], self.rule[jira_field][1:])
                 self.set_jira_arg(jira_field, value, fields)
 
-        title = self.create_title(matches)
+        if 'jira_subject' in self.rule:
+            title = self.create_custom_title(matches)
+        else:
+            title = self.create_title(matches)
 
         if self.bump_tickets:
             ticket = self.find_existing_ticket(matches)
@@ -880,6 +885,32 @@ class JiraAlerter(Alerter):
             title += ' - %s+ events' % (count)
 
         return title
+
+    def create_custom_title(self, matches):
+        alert_subject = str(self.rule['jira_subject'])
+        alert_subject_max_len = int(self.rule.get('alert_subject_max_len', 2048))
+
+        if 'alert_subject_args' in self.rule:
+            alert_subject_args = self.rule['alert_subject_args']
+            alert_subject_values = [lookup_es_key(matches[0], arg) for arg in alert_subject_args]
+
+            # Support referencing other top-level rule properties
+            # This technically may not work if there is a top-level rule property with the same name
+            # as an es result key, since it would have been matched in the lookup_es_key call above
+            for i, subject_value in enumerate(alert_subject_values):
+                if subject_value is None:
+                    alert_value = self.rule.get(alert_subject_args[i])
+                    if alert_value:
+                        alert_subject_values[i] = alert_value
+
+            missing = self.rule.get('alert_missing_value', '<MISSING VALUE>')
+            alert_subject_values = [missing if val is None else val for val in alert_subject_values]
+            alert_subject = alert_subject.format(*alert_subject_values)
+
+        if len(alert_subject) > alert_subject_max_len:
+            alert_subject = alert_subject[:alert_subject_max_len]
+
+        return alert_subject
 
     def get_info(self):
         return {'type': 'jira'}
