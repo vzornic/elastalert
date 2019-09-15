@@ -797,12 +797,14 @@ class JiraAlerter(Alerter):
         if self.bump_tickets:
             ticket = self.find_existing_ticket(matches)
             if ticket:
+                elastalert_logger.info('Found existing ticket %s' % ticket.key)
                 inactivity_datetime = ts_now() - datetime.timedelta(days=self.bump_after_inactivity)
                 if ts_to_dt(ticket.fields.updated) >= inactivity_datetime:
                     if self.pipeline is not None:
                         self.pipeline['jira_ticket'] = None
                         self.pipeline['jira_server'] = self.server
-                    return None
+                    else:
+                        return None
                 elastalert_logger.info('Commenting on existing ticket %s' % (ticket.key))
                 for match in matches:
                     try:
